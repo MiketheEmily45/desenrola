@@ -1,16 +1,38 @@
 import * as SQLite from 'expo-sqlite';
 
+export type DatabaseStage =
+  | 'opening'
+  | 'configuring'
+  | 'checking'
+  | 'migrating';
+
 let databasePromise: Promise<SQLite.SQLiteDatabase> | undefined;
 
-export function getDatabase(): Promise<SQLite.SQLiteDatabase> {
-  databasePromise ??= SQLite.openDatabaseAsync('desenrola.db').then(async (db) => {
-    await db.execAsync('PRAGMA foreign_keys = ON;');
-    const version = await db.getFirstAsync<{ user_version: number }>(
-      'PRAGMA user_version;',
+export function getDatabase(
+  onStage?: (stage: DatabaseStage) => void,
+): Promise<SQLite.SQLiteDatabase> {
+  databasePromise ??= (async () => {
+    onStage?.('opening');
+    const db = await withTimeout(
+      SQLite.openDatabaseAsync('desenrola.db'),
+      'abrir o banco de dados',
+    );
+
+    onStage?.('configuring');
+    await withTimeout(
+      db.execAsync('PRAGMA foreign_keys = ON;'),
+      'configurar o banco de dados',
+    );
+
+    onStage?.('checking');
+    const version = await withTimeout(
+      db.getFirstAsync<{ user_version: number }>('PRAGMA user_version;'),
+      'verificar a versão do banco',
     );
 
     if ((version?.user_version ?? 0) < 1) {
-      await db.withTransactionAsync(async () => {
+      onStage?.('migrating');
+      await withTimeout(db.withTransactionAsync(async () => {
         await db.execAsync(`
           CREATE TABLE IF NOT EXISTS dividas (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -34,14 +56,37 @@ export function getDatabase(): Promise<SQLite.SQLiteDatabase> {
             ON pagamentos(dividaId, dataPagamento DESC);
           PRAGMA user_version = 1;
         `);
-      });
+      }), 'criar as tabelas locais');
     }
 
     return db;
-  }).catch((error: unknown) => {
+  })().catch((error: unknown) => {
     databasePromise = undefined;
     throw error;
   });
 
   return databasePromise;
+}
+
+function withTimeout<T>(promise: Promise<T>, operation: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(
+        new Error(
+          `O SQLite demorou mais de 20 segundos para ${operation}. Confira a configuração da plataforma e reinicie o servidor Expo.`,
+        ),
+      );
+    }, 20_000);
+
+    promise.then(
+      (value) => {
+        clearTimeout(timeout);
+        resolve(value);
+      },
+      (error: unknown) => {
+        clearTimeout(timeout);
+        reject(error);
+      },
+    );
+  });
 }

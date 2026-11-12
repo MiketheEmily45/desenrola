@@ -16,7 +16,7 @@ export default function App() {
 }
 
 function AppShell() {
-  const { carregando, erroInicializacao, atualizar } = useAppData();
+  const { carregando, etapaInicializacao, erroInicializacao, atualizar } = useAppData();
   const theme = {
     ...DefaultTheme,
     colors: {
@@ -33,7 +33,7 @@ function AppShell() {
     return (
       <View style={{ alignItems: 'center', backgroundColor: colors.background, flex: 1, justifyContent: 'center' }}>
         <ActivityIndicator color={colors.green} size="large" />
-        <Text style={{ color: colors.muted, marginTop: 12 }}>Preparando seus dados locais…</Text>
+        <Text style={{ color: colors.muted, marginTop: 12 }}>{mensagemEtapa(etapaInicializacao)}</Text>
         <StatusBar style="dark" />
       </View>
     );
@@ -49,6 +49,23 @@ function AppShell() {
         <StatusBar style="dark" />
       </View>
     );
+  }
+
+  function mensagemEtapa(
+    etapa: ReturnType<typeof useAppData>['etapaInicializacao'],
+  ): string {
+    switch (etapa) {
+      case 'opening':
+        return 'Abrindo o banco local…';
+      case 'configuring':
+        return 'Configurando o banco local…';
+      case 'checking':
+        return 'Verificando os dados salvos…';
+      case 'migrating':
+        return 'Preparando as tabelas locais…';
+      case 'loading-records':
+        return 'Carregando suas dívidas…';
+    }
   }
 
   return (

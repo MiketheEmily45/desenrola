@@ -18,6 +18,7 @@ Aplicativo móvel de organização e simulação de dívidas, desenvolvido com R
    ```
 
 4. Leia o QR code com o Expo Go. Para usar um emulador Android, execute `npm run android`.
+5. Para testar no navegador, use `npm run web`; a configuração de Metro inclui o suporte WebAssembly e os cabeçalhos necessários ao SQLite Web.
 
 ## Funcionalidades
 
